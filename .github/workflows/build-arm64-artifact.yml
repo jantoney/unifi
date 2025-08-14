@@ -1,0 +1,49 @@
+name: build-arm64-artifact
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    # For public repos you can use GitHub’s native Arm runners:
+    runs-on: ubuntu-24.04-arm
+    # If you’re on a private repo or don’t have access to Arm runners,
+    # swap the line above for a self-hosted Arm64 runner label:
+    # runs-on: [self-hosted, linux, arm64]
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build for ARM64 and load into the runner’s local Docker (no push)
+      - name: Build (ARM64) and load on runner
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          load: true
+          # Change this tag if you prefer a different local name
+          tags: protect:arm64
+          # Optional caching (speeds up subsequent builds)
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Export image as compressed tarball
+        run: |
+          docker save protect:arm64 | gzip > protect-arm64.tar.gz
+          ls -lh protect-arm64.tar.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: protect-arm64-image
+          path: protect-arm64.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
